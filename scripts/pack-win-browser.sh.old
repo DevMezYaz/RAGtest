@@ -1,0 +1,55 @@
+#!/usr/bin/env bash
+# Builds a portable Windows package: dist-win/sleepy-win.zip (unzip + double-click start.bat; nothing to install).
+set -euo pipefail
+cd "$(dirname "$0")/.."
+OUT=dist-win/sleepy
+NODE_VER=22.17.0
+SQLITE_VER=$(node -p "require('better-sqlite3/package.json').version")
+
+rm -rf dist-win && mkdir -p "$OUT/server" "$OUT/data" "$OUT/web"
+npm run build:web >/dev/null
+cp -R web/dist "$OUT/web/dist"
+
+# server + all pure-JS dependencies in one file; only the native sqlite module stays external
+npx esbuild server/index.ts --bundle --platform=node --target=node22 --format=esm --outfile="$OUT/server/server.mjs" \
+  --external:better-sqlite3 --log-level=warning \
+  --banner:js="import { createRequire as __cr } from 'node:module'; const require = __cr(import.meta.url);"
+
+# Node runtime for Windows (single exe, no installer)
+curl -sfL "https://nodejs.org/dist/v$NODE_VER/win-x64/node.exe" -o "$OUT/node.exe"
+
+# better-sqlite3 ships its prebuilt binaries inside the package (prebuilds/win32-x64.node); keep only what Windows needs
+mkdir -p "$OUT/node_modules/better-sqlite3/prebuilds"
+cp -R node_modules/better-sqlite3/lib node_modules/better-sqlite3/package.json "$OUT/node_modules/better-sqlite3/"
+cp node_modules/better-sqlite3/prebuilds/win32-x64.node "$OUT/node_modules/better-sqlite3/prebuilds/"
+# its JS dependencies, if any
+for d in $(node -p "Object.keys(require('better-sqlite3/package.json').dependencies||{}).join(' ')"); do cp -R "node_modules/$d" "$OUT/node_modules/"; done
+
+# config: no folders yet (the friend picks his own), and nothing that points at this machine
+node -e '
+const c = require("./sleepy.config.json");
+c.folders = [];
+c.excludeFolders = c.excludeFolders.filter((e) => !e.includes("RAGtest"));
+c.excludeFolders.push("AppData");
+require("fs").writeFileSync(process.argv[1], JSON.stringify(c, null, 2));' "$OUT/sleepy.config.json"
+grep "^OPENROUTER_API_KEY=" .env > "$OUT/.env"   # only the key he needs; not the Anthropic one
+
+cat > "$OUT/start.bat" <<'BAT'
+@echo off
+cd /d "%~dp0"
+title sleepy
+echo Starting sleepy... keep this window open. Close it to stop.
+start "" cmd /c "timeout /t 3 >nul & start http://localhost:4477"
+node.exe --env-file=.env server\server.mjs
+pause
+BAT
+cat > "$OUT/READ ME.txt" <<'TXT'
+1. Unzip this folder anywhere (Desktop is fine).
+2. Double-click start.bat. If Windows says "protected your PC", choose More info > Run anyway.
+3. Your browser opens sleepy. On first run press Access and tick the folders sleepy may read, then wait for the scan.
+Everything stays on this PC; only the snippets needed to answer a question are sent to the AI.
+To stop: close the black window. To start again: double-click start.bat.
+TXT
+sed -i 's/$/\r/' "$OUT/start.bat" "$OUT/READ ME.txt" 2>/dev/null || true
+( cd dist-win && zip -qr sleepy-win.zip sleepy )
+ls -lh dist-win/sleepy-win.zip

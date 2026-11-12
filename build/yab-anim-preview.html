@@ -1,0 +1,133 @@
+<!doctype html>
+<meta charset="utf-8"><title>Yab widget · file box</title>
+<style>
+  body { margin: 0; font: 13px ui-monospace, Menlo, monospace; color: #222; background: #fff; }
+  h1 { font-size: 14px; margin: 14px 18px 0; font-weight: 600; }
+  p { margin: 4px 18px 12px; color: #666; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); }
+  .cell { height: 300px; display: grid; place-items: center; position: relative; }
+  .cell > div { width: 250px; height: 262px; }
+  .cell span { position: absolute; left: 10px; top: 8px; font-size: 11px; opacity: .7; }
+  .big { height: 720px; } .big > div { width: 640px; height: 670px; }
+</style>
+<h1>Yab widget · file box</h1>
+<p>Live vector SVG with a transparent background, shown over different wallpapers and then large. 10 s seamless loop: float, a folder slides up and settles back, the others shift left and right, a yellow folder pops up.</p>
+<div class="grid">
+  <div class="cell" style="background:#f4f4f6"><span>light</span><div class="a"></div></div>
+  <div class="cell" style="background:#14161c"><span style="color:#fff">dark</span><div class="a"></div></div>
+  <div class="cell" style="background:linear-gradient(135deg,#7f5af0,#2cb67d)"><span style="color:#fff">colourful wallpaper</span><div class="a"></div></div>
+  <div class="cell" style="background:linear-gradient(160deg,#f6d365,#fda085)"><span>warm wallpaper</span><div class="a"></div></div>
+  <div class="cell" style="background:repeating-conic-gradient(#d8d8d8 0 25%,#fff 0 50%) 0 0/20px 20px"><span>transparency grid</span><div class="a"></div></div>
+</div>
+<div class="cell big" style="background:#e9eaf0"><span>large</span><div class="a"></div></div>
+<script>
+// Yab's widget animation: a hand-drawn marker-style file box with cream folders. The box floats gently; every so often one folder slides up out of
+// the box, hovers, and settles back into its slot, while the others shift left and right as if being sorted. Calm, eased, never frantic.
+// Pure vector SVG on a transparent background (crisp at any size); the outlines get a slight hand-drawn wobble from an SVG displacement filter.
+// The timeline loops every LOOP seconds and every channel is back at rest at both ends, so the loop is seamless.
+// YabAnim.mount(el[, freezeAt]) draws it; with freezeAt it draws that one moment and doesn't animate.
+(function () {
+  const LOOP = 10, INK = "#1b1b1d", SLOPE = 0.227;
+  const TAU = Math.PI * 2;
+  const clamp01 = (v) => Math.max(0, Math.min(1, v));
+  const ease = (u) => (u < 0.5 ? 4 * u * u * u : 1 - Math.pow(-2 * u + 2, 3) / 2);     // cubic in-out
+  const easeOut = (u) => 1 - Math.pow(1 - u, 3);
+
+  /** 0 -> 1 over `up`, held for `hold`, back to 0 over `down` (all starting at t0). */
+  const pulse = (t, t0, up, hold, down) => {
+    const d = t - t0;
+    if (d <= 0) return 0;
+    if (d < up) return easeOut(d / up);
+    if (d < up + hold) return 1;
+    if (d < up + hold + down) return 1 - ease((d - up - hold) / down);
+    return 0;
+  };
+  /** 0 -> 1 -> 0 as one smooth hump */
+  const bump = (t, t0, dur) => { const u = (t - t0) / dur; return u <= 0 || u >= 1 ? 0 : Math.sin(Math.PI * ease(u)); };
+
+  // folders, back to front. d: how far back in the box (0 = front, 1 = back wall); x,y: flat offset (up is negative y); w: width; tab position/width.
+  const FOLDERS = [
+    { id: "back",   fill: "#8f8f95", d: 0.9,  x: 4,  y: -26, w: 126, tabX: 60, tabW: 0 },
+    { id: "yel1",   fill: "#f1d983", d: 0.72, x: 10, y: -42, w: 124, tabX: 70, tabW: 38 },
+    { id: "yel2",   fill: "#f8e6a0", d: 0.56, x: 10, y: -34, w: 126, tabX: 64, tabW: 36 },
+    { id: "white",  fill: "#ffffff", d: 0.38, x: 12, y: -62, w: 122, tabX: 4,  tabW: 42 },
+    { id: "cream1", fill: "#fdf3cd", d: 0.16, x: 6,  y: -32, w: 138, tabX: 44, tabW: 36 },
+    { id: "cream2", fill: "#fffae3", d: 0.04, x: 4,  y: -22, w: 140, tabX: 6,  tabW: 36 },
+  ];
+  const FH = 120;
+
+  const folderPath = (w, tabX, tabW) => {
+    const r = 6, ty = 12, tr = 7;
+    if (!tabW) return `M0 ${FH} V${ty + r} Q0 ${ty} ${r} ${ty} H${w - r} Q${w} ${ty} ${w} ${ty + r} V${FH} Z`;
+    return `M0 ${FH} V${ty + r} Q0 ${ty} ${r} ${ty} H${tabX} L${tabX + 5} ${tr} Q${tabX + 7} 0 ${tabX + 13} 0 H${tabX + tabW - 8} Q${tabX + tabW - 3} 0 ${tabX + tabW} ${ty - 2} L${tabX + tabW + 4} ${ty} H${w - r} Q${w} ${ty} ${w} ${ty + r} V${FH} Z`;
+  };
+
+  const SVG = `
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 -52 300 314" width="100%" height="100%" style="display:block;overflow:visible" shape-rendering="geometricPrecision">
+  <defs>
+    <filter id="yabRough" x="-6%" y="-6%" width="112%" height="112%"><feTurbulence type="fractalNoise" baseFrequency="0.028" numOctaves="2" seed="7" result="n"/><feDisplacementMap in="SourceGraphic" in2="n" scale="2.6" xChannelSelector="R" yChannelSelector="G"/></filter>
+  </defs>
+  <g filter="url(#yabRough)" stroke-linecap="round" stroke-linejoin="round">
+    <path id="shadow" d="M166 238 L268 178 Q282 174 281 185 Q277 192 264 200 L186 244 Q170 249 166 242 Z" fill="${INK}" stroke="${INK}" stroke-width="3"/>
+    <g id="box">
+      <path d="M11 98 L161 132 L270 72 L120 38 Z" fill="#2c2c30" stroke="${INK}" stroke-width="4"/>
+      <g id="folders"></g>
+      <g transform="translate(11 98) matrix(1 ${SLOPE} 0 1 0 0)">
+        <path d="M0 0 H150 V100 H0 Z" fill="#fff" stroke="${INK}" stroke-width="4.2"/>
+        <rect x="44" y="40" width="42" height="15" rx="7.5" fill="${INK}"/>
+      </g>
+      <path d="M161 132 L270 72 V168 L161 233 Z" fill="#aeaeb2" stroke="${INK}" stroke-width="4.2"/>
+    </g>
+  </g>
+</svg>`;
+
+  function mount(el, freezeAt) {
+    el.innerHTML = SVG;
+    const folders = el.querySelector("#folders"), box = el.querySelector("#box"), shadow = el.querySelector("#shadow");
+    const nodes = {};
+    for (const f of FOLDERS) {
+      const g = document.createElementNS("http://www.w3.org/2000/svg", "g");
+      g.innerHTML = `<path d="${folderPath(f.w, f.tabX, f.tabW)}" fill="${f.fill}" stroke="${INK}" stroke-width="3.6"/>`;
+      folders.appendChild(g);
+      nodes[f.id] = g;
+    }
+
+    const draw = (time) => {
+      const t = ((time % LOOP) + LOOP) % LOOP, f2 = (v) => v.toFixed(2);
+      // the whole box breathes: a slow float with a little rotation (two full cycles per loop)
+      const fl = Math.sin((TAU * t) / 5);
+      box.setAttribute("transform", `translate(0 ${f2(-3.2 * fl)}) rotate(${f2(1.1 * Math.sin((TAU * t) / 5 + 0.9))} 150 150)`);
+      shadow.setAttribute("transform", `translate(${f2(3 * fl)} 0) scale(${f2(1 + 0.02 * fl)} 1)`);
+
+      // the three things that happen, calmly one after another
+      const out1 = pulse(t, 0.7, 1.1, 0.9, 1.1);   // the tall white folder slides up, hovers, slides back down
+      const shiftA = bump(t, 4.3, 2.0), shiftB = bump(t, 4.7, 2.0), shiftC = bump(t, 5.1, 1.8);   // sorting: the front folders slide sideways
+      const out2 = pulse(t, 7.2, 0.9, 0.5, 1.0);   // a yellow folder from the back pops up and settles
+
+      const mv = {
+        white: { dx: 0, dy: -58 * out1, rot: 2.2 * out1 * Math.sin((TAU * t) / 1.8) },
+        cream2: { dx: 15 * shiftA, dy: 0, rot: 0 },
+        cream1: { dx: -11 * shiftB, dy: 0, rot: 0 },
+        yel2: { dx: 9 * shiftC, dy: -5 * shiftC, rot: 0 },
+        yel1: { dx: 0, dy: -40 * out2, rot: -1.6 * out2 * Math.sin((TAU * t) / 1.5) },
+        back: { dx: 0, dy: 0, rot: 0 },
+      };
+      for (const f of FOLDERS) {
+        const m = mv[f.id], hov = f.id === "white" ? 2.2 * out1 * Math.sin((TAU * t) / 2.2) : 0;
+        nodes[f.id].setAttribute("transform", `translate(${f2(11 + 109 * f.d)} ${f2(98 - 60 * f.d + m.dy + hov)}) matrix(1 ${SLOPE} 0 1 0 0) translate(${f2(f.x + m.dx)} ${f.y}) rotate(${f2(m.rot)} ${f.w / 2} ${FH / 2})`);
+      }
+    };
+
+    draw(freezeAt ?? 0);
+    if (freezeAt != null) return { draw };
+    const t0 = performance.now();
+    const loop = () => { draw(((performance.now() - t0) / 1000) % LOOP); requestAnimationFrame(loop); };
+    requestAnimationFrame(loop);
+    return { draw };
+  }
+
+  window.YabAnim = { mount, pose: () => ({}), LOOP };
+})();
+
+</script>
+<script>document.querySelectorAll(".a").forEach((el) => YabAnim.mount(el));</script>

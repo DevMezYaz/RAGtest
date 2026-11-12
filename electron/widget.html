@@ -1,0 +1,48 @@
+<!doctype html>
+<meta charset="utf-8"><title>Yab</title>
+<style>
+  html, body { margin: 0; height: 100%; background: transparent; overflow: hidden; user-select: none; -webkit-user-select: none; cursor: grab; }
+  body:active { cursor: grabbing; }
+  #anim { position: absolute; inset: 0; }   /* no shadow / hover scale: the launch overlay draws the same picture, so the hand-over between them has to be pixel-identical */
+  #anim.flip svg { transform: scaleX(-1); }
+  #x { position: absolute; top: 4px; right: 4px; width: 24px; height: 24px; border-radius: 50%; border: 2.4px solid #1b1b1d; background: #fff; padding: 0; cursor: pointer; opacity: 0; transform: scale(.7); transition: opacity .15s, transform .15s; display: grid; place-items: center; }
+  body.over #x { opacity: 1; transform: none; }
+  #x:hover { background: #f3e35b; }   /* the same yellow as the Access button */
+  #x svg { width: 11px; height: 11px; }
+</style>
+<div id="anim"></div>
+<button id="x" title="Hide widget (Yab stays in the Dock)" aria-label="Hide widget"><svg viewBox="0 0 12 12"><path d="M2 2 L10 10 M10 2 L2 10" stroke="#1b1b1d" stroke-width="2.4" stroke-linecap="round"/></svg></button>
+<script src="yab-anim.js"></script>
+<script>
+  window.__anim = YabAnim.mount(document.getElementById("anim"));
+  window.sleepy.onShadow?.((v) => window.__anim.setShadow(v));
+  window.sleepy.onFps?.((n) => window.__anim.setFps(n));
+  window.sleepy.onFlip?.((v) => document.getElementById("anim").classList.toggle("flip", !!v));
+  window.sleepy.onResume?.(() => window.__anim.resume());
+  window.sleepy.onRestart?.(() => { window.__anim.hold(0); requestAnimationFrame(() => requestAnimationFrame(() => window.sleepy.widgetPainted?.())); });   // tell main the resting pose is on screen, so the overlay can go   // after the window folds back into the widget the loop starts from its resting pose
+  const send = (m) => window.sleepy.widget(m);
+  const x = document.getElementById("x");
+  let down = false, id = null;
+  const end = (type) => { if (!down) return; down = false; if (id != null) { try { document.body.releasePointerCapture(id); } catch {} id = null; } send({ type }); };
+  // the cross only shows while the pointer is over the widget (CSS :hover can stay stuck on a window that moves under the pointer)
+  document.addEventListener("pointerenter", () => document.body.classList.add("over"));
+  document.addEventListener("pointerleave", () => { if (!down) document.body.classList.remove("over"); });
+  x.addEventListener("pointerdown", (e) => e.stopPropagation());
+  x.addEventListener("click", (e) => { e.stopPropagation(); send({ type: "close" }); });
+  // pointer capture keeps the drag alive and guarantees we hear the release, so a drag can never get stuck
+  document.body.addEventListener("pointerdown", (e) => {
+    if (e.button !== 0 || e.target.closest("#x")) return;
+    down = true; id = e.pointerId; try { document.body.setPointerCapture(id); } catch {}
+    send({ type: "down", sx: e.screenX, sy: e.screenY });
+  });
+  document.body.addEventListener("pointermove", (e) => {
+    if (!down) return;
+    if (e.buttons === 0) return end("up");     // released somewhere we didn't see
+    send({ type: "move", sx: e.screenX, sy: e.screenY });
+  });
+  document.body.addEventListener("pointerup", () => end("up"));
+  document.body.addEventListener("pointercancel", () => end("cancel"));
+  document.body.addEventListener("lostpointercapture", () => end("cancel"));
+  addEventListener("blur", () => end("cancel"));
+  addEventListener("contextmenu", (e) => { e.preventDefault(); end("cancel"); send({ type: "menu" }); });
+</script>

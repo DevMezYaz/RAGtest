@@ -1,0 +1,50 @@
+{
+  "name": "yab",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "concurrently -n api,web -c yellow,cyan \"npm:dev:api\" \"npm:dev:web\"",
+    "dev:api": "tsx watch --env-file-if-exists=.env server/index.ts",
+    "dev:web": "vite --config web/vite.config.ts",
+    "build:web": "vite build --config web/vite.config.ts",
+    "start": "tsx --env-file-if-exists=.env server/index.ts",
+    "scan": "tsx --env-file-if-exists=.env server/cli.ts scan",
+    "search": "tsx --env-file-if-exists=.env server/cli.ts search",
+    "ask": "tsx --env-file-if-exists=.env server/cli.ts ask",
+    "ocr": "tsx --env-file-if-exists=.env server/cli.ts ocr",
+    "typecheck": "tsc --noEmit && tsc --noEmit -p web",
+    "app": "npm run build:web && env -u ELECTRON_RUN_AS_NODE electron .",
+    "app:dev": "env -u ELECTRON_RUN_AS_NODE electron ."
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^1.3.0",
+    "@hono/node-server": "^2.1.5",
+    "better-sqlite3": "^13.0.3",
+    "hono": "^4.13.14",
+    "jszip": "^3.10.2",
+    "mammoth": "^1.13.0",
+    "pdf-lib": "^1.17.1",
+    "pdfjs-dist": "^6.4.299",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1",
+    "unpdf": "^1.9.1",
+    "xlsx": "^0.18.5",
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "^9.6.0",
+    "@types/node": "^26.6.6",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "@vitejs/plugin-react": "^6.1.2",
+    "concurrently": "^10.0.6",
+    "electron": "^45.1.0",
+    "pngjs": "^7.0.0",
+    "resedit": "^3.1.0",
+    "tsx": "^4.23.15",
+    "typescript": "^7.0.2",
+    "vite": "^8.3.5"
+  },
+  "main": "electron/main.cjs"
+}

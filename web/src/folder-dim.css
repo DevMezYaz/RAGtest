@@ -1,0 +1,32 @@
+/* "Folder style: Dimensional" (widget menu). Everything here is scoped to html.dim3, so with the flat style (the default) none of it applies.
+   At rest the drawer is exactly the flat, clean stack. Depth only appears when you interact:
+   - hovering a tab: the folders in front of it slide down a little and grow a touch wider; the gap shows the hovered folder's darker back and a thin line in the hover colour
+   - opening a file: the selected folder shows two layers (a lighter front cover, a little lower and wider than the darker back that carries the tab) before it turns */
+
+/* the drawer: nothing extra at rest -------------------------------------------------------------------------------------- */
+html.dim3 .folder { --lift: 0px !important; transform: translateY(calc(var(--hot, 0px) + var(--push, 0px))); scale: var(--grow, 1); transition: transform .2s ease-out, scale .2s ease-out, top .5s var(--ease), opacity .6s var(--ease); }
+html.dim3 .folder:has(.strip:hover) ~ .folder { --push: 12px; --grow: 1.006; }
+html.dim3 .folder .body { box-shadow: none; }
+/* the darker back that shows in the gap while a tab is hovered */
+html.dim3 .folder .body::after {
+  content: ""; position: absolute; top: 0; left: 0; right: 0; height: 56px; border-radius: 10px 10px 0 0;
+  background: linear-gradient(180deg, transparent 14px, #00000014 30px); opacity: 0; transition: opacity .2s ease-out; pointer-events: none;
+}
+html.dim3 .folder:has(.strip:hover) .body::after { opacity: 1; }
+/* the two panels: at rest they are one flat band; while a tab is hovered only that folder grows its depth (darker back, lighter front panel a little lower and wider) */
+html.dim3 .folder .body { transition: background-color .2s ease-out; }
+html.dim3 .folder .body::before {
+  content: ""; position: absolute; top: 8px; bottom: 0; left: calc(-5px - var(--i, 0) * .25px); right: calc(-5px - var(--i, 0) * .25px);
+  background: color-mix(in srgb, var(--c, var(--paper)) 95%, #fff); border-radius: 5px 5px 0 0;
+  box-shadow: 0 -1px 0 #0000001a, inset 0 1px 0 #ffffff2e; opacity: 0; transition: opacity .2s ease-out; pointer-events: none;
+}
+html.dim3 .folder:has(.strip:hover) .body { background: color-mix(in srgb, var(--c, var(--paper)) 97%, #000); }
+html.dim3 .folder:has(.strip:hover) .body::before { opacity: 1; }
+html.dim3 .folder .tab { transition: opacity .5s, transform .2s ease-out; }
+html.dim3 .folder:has(.strip:hover) .tab { transform: translateY(-4px); }
+
+/* the opened file: the front cover that swings away (turn.ts moves it) ---------------------------------------------------- */
+html.dim3 .viewer-slot.portrait .viewer-front {
+  position: absolute; top: -6px; bottom: -6px; left: 0; right: 10px; z-index: 4; pointer-events: none; transform-origin: 100% 0;
+  background: color-mix(in srgb, var(--fc, #444) 84%, #fff); border-radius: 0 5px 5px 0; box-shadow: 3px 0 0 #00000038, inset -1px 0 0 #ffffff40;
+}

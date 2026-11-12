@@ -1,0 +1,12 @@
+node_modules
+data
+.env
+web/dist
+dist-win
+.DS_Store
+dist-mac
+releases
+models
+build/*.bak
+*.pdf
+.vscode

@@ -1,0 +1,62 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Shortcut</title>
+<style>
+  :root { color-scheme: light dark; }
+  * { box-sizing: border-box; }
+  body { margin: 0; padding: 22px 24px 16px; text-align: center; font: 13px -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif; background: Canvas; color: CanvasText; user-select: none; -webkit-user-select: none; }
+  .name { font-weight: 600; margin-bottom: 14px; }
+  .key { font-size: 22px; letter-spacing: .04em; height: 42px; line-height: 42px; border-radius: 8px; background: color-mix(in srgb, Canvas 90%, CanvasText); }
+  .key.wait { opacity: .5; font-size: 13px; letter-spacing: 0; }
+  .err { min-height: 18px; margin-top: 10px; font-size: 12px; color: #d12c2c; }
+  .hint { margin-top: 4px; font-size: 11.5px; opacity: .55; }
+  .btns { margin-top: 12px; display: flex; justify-content: center; gap: 8px; }
+  button { font: inherit; padding: 3px 14px; border-radius: 6px; border: 1px solid color-mix(in srgb, CanvasText 25%, transparent); background: color-mix(in srgb, Canvas 92%, CanvasText); color: inherit; cursor: default; }
+</style>
+<div class="name" id="name"></div>
+<div class="key wait" id="key">Type the new shortcut</div>
+<div class="err" id="err"></div>
+<div class="hint">Use ⌘, ⌃, ⌥ or ⇧ with a key. Esc to cancel.</div>
+<div class="btns"><button id="clear">Remove shortcut</button><button id="cancel">Cancel</button></div>
+<script>
+const id = new URLSearchParams(location.search).get("id");
+const mac = window.sleepy.platform === "darwin";
+if (!mac) document.querySelector(".hint").textContent = "Use Ctrl, Alt or Shift with a key. Esc to cancel.";
+const pretty = (a) => a.split("+").map((p) => ({ CmdOrCtrl: mac ? "⌘" : "Ctrl", Control: mac ? "⌃" : "Ctrl", Alt: mac ? "⌥" : "Alt", Shift: mac ? "⇧" : "Shift", Super: mac ? "⌘" : "Win", Return: "↵" }[p] ?? p)).join(mac ? " " : " + ");
+const CODE = { Space: "Space", Enter: "Return", Tab: "Tab", Backspace: "Backspace", Delete: "Delete", Home: "Home", End: "End", PageUp: "PageUp", PageDown: "PageDown", ArrowUp: "Up", ArrowDown: "Down", ArrowLeft: "Left", ArrowRight: "Right",
+  Comma: ",", Period: ".", Slash: "/", Semicolon: ";", Quote: "'", BracketLeft: "[", BracketRight: "]", Backslash: "\\", Minus: "-", Equal: "=", Backquote: "`" };
+const keyName = (c) => /^Key[A-Z]$/.test(c) ? c.slice(3) : /^Digit\d$/.test(c) ? c.slice(5) : /^F\d{1,2}$/.test(c) ? c : CODE[c] ?? null;
+const fromEvent = (e) => {   // e comes from the main process (the menu would swallow Cmd+M etc. before the page saw it)
+  const k = keyName(e.code);
+  if (!k) return null;
+  const m = [];
+  if (mac ? e.meta : e.control) m.push("CmdOrCtrl");
+  if (mac && e.control) m.push("Control");
+  if (!mac && e.meta) m.push("Super");
+  if (e.alt) m.push("Alt");
+  if (e.shift) m.push("Shift");
+  return [...m, k].join("+");
+};
+const err = (t) => { document.getElementById("err").textContent = t || ""; };
+async function save(a) {
+  const res = await window.sleepy.keys.set(id, a);
+  if (res.ok) { window.close(); return; }
+  err(res.error);
+}
+window.sleepy.keys.get().then((r) => {
+  const row = r.rows.find((x) => x.id === id);
+  document.getElementById("name").textContent = row ? row.label : "Shortcut";
+  document.title = row ? row.label : "Shortcut";
+  if (row?.acc) { const k = document.getElementById("key"); k.textContent = pretty(row.acc); k.classList.remove("wait"); k.style.opacity = ".45"; }
+});
+window.sleepy.keys.onInput((e) => {
+  if (["Meta", "Control", "Alt", "Shift"].includes(e.key)) return;
+  if (e.key === "Escape") { window.close(); return; }
+  const a = fromEvent(e);
+  if (!a) { err("That key can't be used."); return; }
+  const k = document.getElementById("key"); k.textContent = pretty(a); k.classList.remove("wait"); k.style.opacity = "1";
+  save(a);
+});
+document.getElementById("clear").onclick = () => save("");
+document.getElementById("cancel").onclick = () => window.close();
+</script>
