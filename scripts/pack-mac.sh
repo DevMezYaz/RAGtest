@@ -27,7 +27,7 @@ node scripts/get-models.mjs >/dev/null && cp -R models "$RES/models"   # the on-
 cp build/icon-512.png "$RES/build/"
 cp -R web/dist "$RES/web" 2>/dev/null || { mkdir -p "$RES/web" && cp -R web/dist "$RES/web/"; }
 [ -d "$RES/web/dist" ] || { rm -rf "$RES/web" && mkdir -p "$RES/web" && cp -R web/dist "$RES/web/dist"; }
-node -e 'require("fs").writeFileSync(process.argv[1], JSON.stringify({ name: "yab", version: "1.3.1", main: "electron/main.cjs" }))' "$RES/package.json"
+node -e 'require("fs").writeFileSync(process.argv[1], JSON.stringify({ name: "yab", version: "1.3.2", main: "electron/main.cjs" }))' "$RES/package.json"
 npx esbuild server/index.ts --bundle --platform=node --target=node22 --format=esm --outfile="$RES/server/server.mjs" \
   --external:better-sqlite3 --log-level=warning \
   --banner:js="import { createRequire as __cr } from 'node:module'; const require = __cr(import.meta.url);"

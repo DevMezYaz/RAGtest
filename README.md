@@ -6,7 +6,7 @@ Yab is a local-first desktop assistant for the files on your computer. You point
 
 It lives on your desktop as a small floating icon. Click it and it unfolds into a filing drawer holding all your documents.
 
-Current version: **1.3.1** · Platforms: **macOS 13+** and **Windows** · Built with Electron, Hono, React and SQLite.
+Current version: **1.3.2** · Platforms: **macOS 13+** and **Windows** · Built with Electron, Hono, React and SQLite.
 
 ---
 
@@ -46,7 +46,12 @@ This is a **RAG (retrieval-augmented generation)** app. Retrieval runs locally; 
 
 ---
 
-## What's new in 1.3.1
+## What's new in 1.3.2
+
+- **No more ghost file count.** Yab now clears index entries for files that no longer exist, or that sit outside your chosen folders, as soon as it starts, then rescans. A fresh install (or one that picked up an old index) no longer shows thousands of files that aren't there.
+- **Yab opens in front, every time (Mac).** The window is brought to the front of other apps when it opens, and *Bring Yab to front* now also works after the app was hidden with Cmd+H, where it used to open the window behind other apps. If the window doesn't take focus on the first try it retries.
+
+## What 1.3.1 changed
 
 1.3.1 reworks keyboard shortcuts so opening and closing Yab is one predictable key, and every shortcut is rebindable.
 
@@ -62,7 +67,8 @@ This is a **RAG (retrieval-augmented generation)** app. Retrieval runs locally; 
 
 | Version | Highlights |
 |---|---|
-| **1.3.1** | Shortcut rework described above. |
+| **1.3.2** | Stale file count cleared at startup; window reliably opens in front and *Bring Yab to front* works after Cmd+H. |
+| **1.3.1** | Shortcut rework. |
 | **1.3** | Bundled search-by-meaning model ([potion-base-8M](https://huggingface.co/minishlab/potion-base-8M)); UI and server updates. |
 | **1.2 / 1.1 / 1.0** | Earlier builds. Their packaged apps are attached to the GitHub Releases for reference. |
 

@@ -16,7 +16,7 @@ import { EditSchema, executeEdit, undoEdit } from "./editor.js";
 import { aiView, estimate as smartEstimate, saveAi, smartApprove, smartControl, smartMaybeStart } from "./ai.js";
 import { OCR_DONE, ocrSupported } from "./ocr.js";
 import { db } from "./db.js";
-import { accessChanged, purgeOutOfScope, refreshIfStale, requestScan, scan, stats, status } from "./scanner.js";
+import { accessChanged, pruneStale, purgeOutOfScope, refreshIfStale, requestScan, scan, stats, status } from "./scanner.js";
 import { drawerList, findFiles, getFile, getPages, labels, searchContent } from "./search.js";
 
 const PORT = Number(process.env.PORT ?? 4477);
@@ -320,6 +320,8 @@ serve({ fetch: app.fetch, port: PORT, hostname: API_KEY ? "0.0.0.0" : "127.0.0.1
   console.log(`yab api  http://localhost:${PORT}  (${stats().files} files indexed)`);
   if (process.env.OPENROUTER_API_KEY || process.env.ANTHROPIC_API_KEY) console.log(`chat via ${provider()} · ${activeModel()}`);
   else console.warn("⚠ no OPENROUTER_API_KEY or ANTHROPIC_API_KEY set — search works, chat will fail");
+  // drop ghost rows left by an earlier install / deleted files first, then catch up with what is on disk now
+  void pruneStale().then((n) => { if (n) console.log(`pruned ${n} stale index rows`); }).catch(() => {}).then(() => { if (!status.running) void scan(); });
   // incremental re-scan (unchanged files are skipped by size+mtime, so this is cheap)
   // the gap is read each time, so changing it in the settings takes effect from the next cycle
   const tick = () => setTimeout(() => { if (!status.running) void scan(); tick(); }, Math.max(1, loadConfig().scanIntervalMin ?? 15) * 60_000).unref();

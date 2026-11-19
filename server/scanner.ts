@@ -139,6 +139,17 @@ export function purgeOutOfScope(): number {
   return n;
 }
 
+/** Startup housekeeping: forget index rows whose file is gone from disk or lies outside the shared folders (left over from an earlier install or a deleted folder), so the counters never show a ghost index. */
+export async function pruneStale(): Promise<number> {
+  let n = purgeOutOfScope();
+  const gone: number[] = [];
+  for (const r of q.allPaths.all() as { id: number; path: string }[]) {
+    try { await fs.stat(r.path); } catch (e) { if ((e as NodeJS.ErrnoException).code === "ENOENT" || (e as NodeJS.ErrnoException).code === "ENOTDIR") gone.push(r.id); }
+  }
+  db.transaction(() => { for (const id of gone) q.delFile.run(id); })();
+  return n + gone.length;
+}
+
 /** Start a scan now, or right after the one in progress (used when access changes mid-scan). */
 export function requestScan() {
   if (status.running) { queued = true; return; }

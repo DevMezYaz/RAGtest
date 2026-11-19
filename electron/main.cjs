@@ -129,10 +129,21 @@ function showWidget() {
   if (!widget) createWidget(); else widget.showInactive();
 }
 
+/** macOS: make Yab the active app (and un-hide it after Cmd+H / "Hide Yab"). A window shown while the app is inactive or hidden is ordered in behind the other apps' windows. */
+function activateApp() {
+  if (process.platform !== "darwin") return;
+  try { if (app.isHidden()) app.show(); app.focus({ steal: true }); } catch { /* ignore */ }
+}
+
 /** Bring a window in front of other apps' windows and give it focus once, without pinning it: it is not always-on-top, so clicking a window behind it sends Yab back as usual. */
-function raise(w) {
+function raise(w, tries = 0) {
   if (!w || w.isDestroyed()) return;
-  if (process.platform === "darwin") { try { app.focus({ steal: true }); } catch { /* ignore */ } w.show(); w.focus(); return; }
+  if (process.platform === "darwin") {
+    activateApp(); w.show(); w.moveTop(); w.focus();
+    // activation is asynchronous: if the window still is not the key window a moment later (busy machine, another Space), take another pass
+    if (tries < 3) setTimeout(() => { if (!w.isDestroyed() && w.isVisible() && !w.isFocused() && w.getOpacity() > 0) raise(w, tries + 1); }, 120);
+    return;
+  }
   w.show();
   w.setAlwaysOnTop(true); w.moveTop(); w.focus();   // Windows refuses plain focus() from a background app; a brief top-most pass gets it to the front, then it is released
   setTimeout(() => { if (!w.isDestroyed()) w.setAlwaysOnTop(false); }, 200);
@@ -168,7 +179,9 @@ function revealSimple() {
 function expand() {
   if (!win) return create();
   if (fx.busy) return;
-  if (win.isVisible()) { raise(win); return; }   // already open: never play the launch again on top of itself
+  if (process.platform === "darwin" && app.isHidden()) activateApp();   // Cmd+H hides the whole app, so the window only looks closed
+  if (win.isVisible()) { raise(win); return; }
+  activateApp();   // the window must come up inside the active app, or it is ordered in behind whatever app is in front   // already open: never play the launch again on top of itself
   const place = () => {
     const kept = readWin();
     if (kept && screen.getAllDisplays().some((d) => { const a = d.workArea; return kept.x + 80 < a.x + a.width && kept.x + kept.width - 80 > a.x && kept.y >= a.y - 4 && kept.y + 60 < a.y + a.height; })) { win.setBounds(kept); return; } // where the user last dragged it
@@ -664,7 +677,9 @@ const toggle = () => {
 };
 /** Pull the open window to the front (a window buried under others); closed, it just opens. */
 function focusYab() {
-  if (fx.busy) return;
+  if (process.platform === "darwin" && app.isHidden()) activateApp();   // Cmd+H: un-hide first, otherwise the window counts as closed and is "opened" again behind the other apps
+  if (fx.busy && fx.dir === "close") return;   // folding away: let it finish (a press during an opening still raises the window)
+  if (fx.busy && !win?.isVisible()) return;
   if (win?.isVisible()) raise(win); else expand();
 }
 
